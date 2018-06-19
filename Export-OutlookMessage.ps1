@@ -28,7 +28,11 @@ Mandatory parameter which specifies to which folder messages will be saved. It c
 .PARAMETER FileNameFormat
 Optional parameter that specifies how individual files will be named based. If omitted, files will be saved in format 'FROM= %SenderName% SUBJECT= %Subject%'.
 File name can contain any of message parameters surrounded with %. For list of parameters, type Get-OutlookInbox | Get-Member.
-Custom format can be specified after a | character within the %, e.g. %ReceivedTime|yyyyMMddhhmmss%.
+Custom format can be specified after a | character within the %, e.g. %ReceivedTime|yyyyMMddHHmmss%.
+
+.PARAMETER FileWriteTimeFormat
+Optional parameter that specifies custom value to set as LastWriteTime (which will be shown as Date modified in Windows Explorer) on exported files.
+The value can contain message parameters surrounded with %, e.g. %ReceivedTime%, but must be possible to parse into a DateTime value.
 
 .PARAMETER SkippedMessages
 Optional parameter that specifies varaible to which will be stored messages that can not be processed.
@@ -55,6 +59,7 @@ Param(
     [parameter(Mandatory=$true,ValueFromPipeline=$true)] [ValidateNotNullOrEmpty()] [psobject[]]$Messages,
     [parameter(Mandatory=$true,ValueFromPipeline=$false)] [string]$OutputFolder,
     [parameter(Mandatory=$false,ValueFromPipeline=$false)] [string]$FileNameFormat='FROM= %SenderName% SUBJECT= %Subject%',
+    [parameter(Mandatory=$false,ValueFromPipeline=$false)] [string]$FileWriteTimeFormat,
     [parameter(Mandatory=$false,ValueFromPipeline=$false)] [ref]$SkippedMessages
 
 ) #end param
@@ -69,6 +74,9 @@ BEGIN {
     # convert format message to real file name, replace %...% with message attribute
     $ReqProps = @('Subject','SaveAs')
     $ReqProps += Get-Properties($FileNameFormat)
+    if ($FileWriteTimeFormat) {
+        Get-Properties($FileWriteTimeFormat) | ForEach-Object { if ($ReqProps -notcontains $_) { $ReqProps += $_ } }
+    }
 
     # resolve relative path since MailItem.SaveAs does not support them
     $OutputFolderPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputFolder)
@@ -111,6 +119,10 @@ PROCESS {
         Write-Verbose -Message "Saving message to $FullFilePath"
         try {
             $Message.SaveAs($FullFilePath,$olSaveAsTypes::olMSGUnicode)
+            if ($FileWriteTimeFormat) {
+                $FileWriteTime = Expand-Properties -InputObject $Message -Pattern $FileWriteTimeFormat
+                (Get-Item -LiteralPath $FullFilePath).LastWriteTime = [datetime]::Parse($FileWriteTime)
+            }
         } catch {
             if ($SkippedMessages) {
                 $SkippedMessages.Value += $Message # adding skipped messages to referenced variable if passed

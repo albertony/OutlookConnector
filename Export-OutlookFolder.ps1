@@ -28,7 +28,12 @@ Entire Outlok folder structure will be generated within specified folder.
 .PARAMETER FileNameFormat
 Optional parameter that specifies how individual files will be named based. If omitted, files will be saved in format 'FROM= %SenderName% SUBJECT= %Subject%'.
 File name can contain any of message parameters surrounded with %. For list of parameters, type Get-OutlookInbox | Get-Member.
-Custom format can be specified after a | character within the %, e.g. %ReceivedTime|yyyyMMddhhmmss%.
+Custom format can be specified after a | character within the %, e.g. %ReceivedTime|yyyyMMddHHmmss%.
+Parameter is passed to Export-OutlookMessage function.
+
+.PARAMETER FileWriteTimeFormat
+Optional parameter that specifies custom value to set as LastWriteTime (which will be shown as Date modified in Windows Explorer) on exported files.
+The value can contain message parameters surrounded with %, e.g. %ReceivedTime%, but must be possible to parse into a DateTime value.
 Parameter is passed to Export-OutlookMessage function.
 
 .PARAMETER Filter
@@ -65,12 +70,13 @@ CREATEDATE: September 29, 2015
 [CmdletBinding()]
 
 Param(
-    [parameter(Mandatory=$true,ValueFromPipeline=$true,Position=0)][psobject[]]$InputFolder,
-    [parameter(Mandatory=$true,ValueFromPipeline=$false)][string]$OutputFolder,
-    [parameter(Mandatory=$false,ValueFromPipeline=$false)][string]$FileNameFormat='FROM= %SenderName% SUBJECT= %Subject%',
-    [parameter(Mandatory=$false,ValueFromPipeline=$false)][string]$Filter,
-    [parameter(Mandatory=$false,ValueFromPipeline=$false)][Microsoft.Office.Interop.Outlook.OlObjectClass[]]$IncludeTypes,
-    [parameter(Mandatory=$false,ValueFromPipeline=$false)][Microsoft.Office.Interop.Outlook.OlObjectClass[]]$ExcludeTypes,
+    [parameter(Mandatory=$true,ValueFromPipeline=$true,Position=0)] [psobject[]]$InputFolder,
+    [parameter(Mandatory=$true,ValueFromPipeline=$false)] [string]$OutputFolder,
+    [parameter(Mandatory=$false,ValueFromPipeline=$false)] [string]$FileNameFormat='FROM= %SenderName% SUBJECT= %Subject%',
+    [parameter(Mandatory=$false,ValueFromPipeline=$false)] [string]$FileWriteTimeFormat,
+    [parameter(Mandatory=$false,ValueFromPipeline=$false)] [string]$Filter,
+    [parameter(Mandatory=$false,ValueFromPipeline=$false)] [Microsoft.Office.Interop.Outlook.OlObjectClass[]]$IncludeTypes,
+    [parameter(Mandatory=$false,ValueFromPipeline=$false)] [Microsoft.Office.Interop.Outlook.OlObjectClass[]]$ExcludeTypes,
     [switch]$Progress
 
 ) #end param
@@ -128,7 +134,7 @@ PROCESS {
                             Continue folderloop # next folder
                         }
                     }
-                    Export-OutlookMessage -Messages $msg -OutputFolder $TargetFolder -FileNameFormat $FileNameFormat
+                    Export-OutlookMessage -Messages $msg -OutputFolder $TargetFolder -FileNameFormat $FileNameFormat -FileWriteTimeFormat $FileWriteTimeFormat 
                     ++$exportCounter
                 } else {
                     Write-Verbose -Message ('Excluding message of type ' + [enum]::GetName([Microsoft.Office.Interop.Outlook.OlObjectClass], $msg.Class))
@@ -141,7 +147,7 @@ PROCESS {
         if ($SubCount -gt 0) {
             # export subfolders
             foreach ($subfolder in ($F.Folders)) {
-                Export-OutlookFolder -InputFolder $subfolder -OutputFolder $OutputFolderPath -FileNameFormat $FileNameFormat -Filter $Filter -IncludeTypes $IncludeTypes -ExcludeTypes $ExcludeTypes -Progress:$Progress
+                Export-OutlookFolder -InputFolder $subfolder -OutputFolder $OutputFolderPath -FileNameFormat $FileNameFormat -FileWriteTimeFormat $FileWriteTimeFormat -Filter $Filter -IncludeTypes $IncludeTypes -ExcludeTypes $ExcludeTypes -Progress:$Progress
             }
         }
     } # End of foreach
